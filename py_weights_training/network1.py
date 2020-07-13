@@ -196,23 +196,18 @@ class Network(object):
 
                 if (epoch + 1) % SAVE_INTERVAL == 0:
                     saver.save(sess, CKPT_DIR + 'model_', global_step=epoch + 1)
-                    #self.print_weights('4')
-                    #self.print_weights('2')
-                    #self.print_weights('3')
                     print("Model Saved")
 
                 epoch = sess.run(global_step)
 
-            #self.print_all_weights()
 
     def check_data_exist(self):
         path = self.args.data_dir + "npy/"
         filelist = os.listdir(path)
 
-        if not (len(filelist) == 6):
+        if not (len(filelist) == 8):
             create_dataset(self.args, "train")
             create_dataset(self.args, "valid")
-            create_dataset(self.args, "test")
 
     def load_dataset(self, data_type, shuffle=True):
         path = self.args.data_dir + 'npy/'
