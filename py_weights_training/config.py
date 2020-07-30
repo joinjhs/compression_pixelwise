@@ -15,6 +15,9 @@ def parse_training_args(parser):
     parser.add_argument('--gpu_num', type=int, default=0,
                         help='GPU number to use')
 
+    parser.add_argument('--channel_num', type=int, default=1,
+                        help='Number of channels to use (1 or 3)')
+
     # Directory parameters
     parser.add_argument('--ckpt_dir', type=str, default='ckpt/',
                         help='The location of model checkpoint')
@@ -36,20 +39,26 @@ def parse_training_args(parser):
                         help='Number of pixels left of reference pixel in context')
 
     # Session parameters
+    parser.add_argument('--patch_size', type=int, default=256,
+                        help='Size of training patch')
+
     parser.add_argument('--lr', type=float, default=1e-3,
                         help='Learning rate')
 
-    parser.add_argument('--epoch', type=int, default=80,
+    parser.add_argument('--epoch', type=int, default=30,
                         help='Epochs to train')
 
-    parser.add_argument('--batch_size', type=int, default=4,
-                        help='Size of batch')
+    parser.add_argument('--batch_size', type=int, default=8,
+                        help='Size of batch (Must be divisable by 4)')
 
     parser.add_argument('--lambda_ctx', type=float, default=1,
                         help='Balancing parameter between pred/context')
 
-    parser.add_argument('--save_interval', type=float, default=5,
+    parser.add_argument('--save_every', type=float, default=10,
                         help='Interval of saving the model')
+
+    parser.add_argument('--print_every', type=float, default=10,
+                        help='Print every')
 
 
 
