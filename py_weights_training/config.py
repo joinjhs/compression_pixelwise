@@ -6,10 +6,10 @@ def parse_training_args(parser):
     Args:
         parser: An argparse object.
     """
-    parser.add_argument('--do_train', type=str2bool, default='yes',
+    parser.add_argument('--do_train', type=str2bool, default='no',
                         help='Whether to train or not')
 
-    parser.add_argument('--load', type=str2bool, default='no',
+    parser.add_argument('--load', type=str2bool, default='yes',
                         help='Whether to load model or not')
 
     parser.add_argument('--gpu_num', type=int, default=0,

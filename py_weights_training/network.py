@@ -6,7 +6,7 @@ import random
 from config import parse_args
 from module import model, model_conv
 from data_mono import create_dataset
-from data import read_dir, create_data, create_test_data
+from data import read_dir, create_data, create_test_data, save_image_data, save_pred_data, save_ctx_data
 
 
 class Network(object):
@@ -108,6 +108,12 @@ class Network(object):
         self.ctx_2 = ctx_3
         self.ctx_3 = ctx_3
         self.ctx_4 = ctx_4
+
+        #original images
+        self.input_1 = input_1
+        self.input_2 = input_2
+        self.input_3 = input_3
+        self.input_4 = input_4
 
     def train(self):
 
@@ -229,7 +235,7 @@ class Network(object):
         config.gpu_options.allow_growth = True
 
         # Read dataset
-        test_data = read_dir(DATA_DIR + 'test/')
+        test_data = read_dir(DATA_DIR + 'div/')
 
         with tf.Session(config=config) as sess:
             sess.run(tf.global_variables_initializer())
@@ -247,6 +253,8 @@ class Network(object):
             ctx_2 = []
             ctx_3 = []
             ctx_4 = []
+            loss_pred_epoch_2 = loss_pred_epoch_3 = loss_pred_epoch_4 = 0
+            loss_ctx_epoch_2 = loss_ctx_epoch_3 = loss_ctx_epoch_4 = 0
 
             for img_idx in range(len(test_data)):
                 
@@ -255,15 +263,74 @@ class Network(object):
                 feed_dict_test = {
                     self.input : input_data
                 }
+                i1, i2, i3, i4, p2, p3, p4, c2, c3, c4 = sess.run(
+                    [self.input_1, self.input_2, self.input_3, self.input_4, self.pred_2, self.pred_3, self.pred_4,
+                     self.ctx_2, self.ctx_3, self.ctx_4], feed_dict=feed_dict_test)
 
-                p2, p3, p4, c2, c3, c4 = sess.run([self.pred_2, self.pred_3, self.pred_4, self.ctx_2, self.ctx_3, self.ctx_4], feed_dict=feed_dict_test)
+                loss_p_2, loss_p_3, loss_p_4, loss_c_2, loss_c_3, loss_c_4 = sess.run(
+                    [self.loss_pred_2, self.loss_pred_3, self.loss_pred_4, self.loss_ctx_2, self.loss_ctx_3,
+                     self.loss_ctx_4], feed_dict=feed_dict_test)
 
-                pred_2.append(p2)                
+                loss_pred_epoch_2 += loss_p_2
+                loss_pred_epoch_3 += loss_p_3
+                loss_pred_epoch_4 += loss_p_4
+
+                loss_ctx_epoch_2 += loss_c_2
+                loss_ctx_epoch_3 += loss_c_3
+                loss_ctx_epoch_4 += loss_c_4
+                '''
+                pred_2.append(p2)
                 pred_3.append(p3)
                 pred_4.append(p4)
                 ctx_2.append(c2)
                 ctx_3.append(c3)
                 ctx_4.append(c4)
+                '''
+                save_image_data(img_idx, 1, i1)
+                save_image_data(img_idx, 2, i2)
+                save_image_data(img_idx, 3, i3)
+                save_image_data(img_idx, 4, i4)
+                save_pred_data(img_idx, 2, p2)
+                save_pred_data(img_idx, 3, p3)
+                save_pred_data(img_idx, 4, p4)
+                save_ctx_data(img_idx, 2, c2)
+                save_ctx_data(img_idx, 3, c3)
+                save_ctx_data(img_idx, 4, c4)
+
+                size = np.zeros(2)
+                size[0]=i1.shape[1]
+                size[1]=i1.shape[2]
+                np.savetxt('../c_compression/ICIP_Compression/data/' + str(img_idx) + '_size.txt', size, fmt='%d')
+                print('num {}'.format(img_idx))
+
+
+
+
+
+            loss_pred_epoch_2 /= len(test_data)
+            loss_pred_epoch_3 /= len(test_data)
+            loss_pred_epoch_4 /= len(test_data)
+            loss_ctx_epoch_2 /= len(test_data)
+            loss_ctx_epoch_3 /= len(test_data)
+            loss_ctx_epoch_4 /= len(test_data)
+            loss_epoch_2 = loss_pred_epoch_2 + loss_ctx_epoch_2
+            loss_epoch_3 = loss_pred_epoch_3 + loss_ctx_epoch_3
+            loss_epoch_4 = loss_pred_epoch_4 + loss_ctx_epoch_4
+
+            print('test result: %04d\n' % (len(test_data)),
+                  '***2***   lossPred=', '{:9.4f}'.format(loss_pred_epoch_2), 'lossContext=',
+                  '{:9.4f}'.format(loss_ctx_epoch_2), 'Loss=', '{:9.4f}\n'.format(loss_epoch_2),
+                  '***3***   lossPred=', '{:9.4f}'.format(loss_pred_epoch_3), 'lossContext=',
+                  '{:9.4f}'.format(loss_ctx_epoch_3), 'Loss=', '{:9.4f}\n'.format(loss_epoch_3),
+                  '***4***   lossPred=', '{:9.4f}'.format(loss_pred_epoch_4), 'lossContext=',
+                  '{:9.4f}'.format(loss_ctx_epoch_4), 'Loss=', '{:9.4f}\n'.format(loss_epoch_4),
+                  '***all*** lossPred=', '{:9.4f}'.format(loss_pred_epoch_2 + loss_pred_epoch_3 + loss_pred_epoch_4),
+                  'lossContext=',
+                  '{:9.4f}'.format(loss_ctx_epoch_2 + loss_ctx_epoch_3 + loss_ctx_epoch_4), 'Loss=',
+                  '{:9.4f}'.format(loss_epoch_2 + loss_epoch_3 + loss_epoch_4))
+
+
+
 
 if __name__ == "__main__":
 
