@@ -1,0 +1,4 @@
+﻿  main.cpp
+  The contents of <filesystem> are available only with C++17 or later.
+D:\LAB\untitled\Compression_pixel\c_compression\ICIP_Compression\main.cpp(94,8): warning C4101: 'result' :참조되지 않은 지역 변수입니다.
+  ICIP_Compression.vcxproj -> D:\LAB\untitled\Compression_pixel\c_compression\x64\Debug\ICIP_Compression.exe
