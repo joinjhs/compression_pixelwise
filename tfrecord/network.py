@@ -285,7 +285,7 @@ class Network(object):
         config.gpu_options.allow_growth = True
 
         # Read dataset
-        test_data = read_dir(DATA_DIR + 'test/')
+        test_data = read_dir(DATA_DIR + 'div/')
 
         with tf.Session(config=config) as sess:
             sess.run(tf.global_variables_initializer())
@@ -394,5 +394,5 @@ if __name__ == "__main__":
     args = parse_args()
     my_net = Network(args)
     my_net.build()
-    my_net.train()
+    #my_net.train()
     my_net.test()
