@@ -33,7 +33,23 @@ int **alloc2D(int height, int width) {
 	return pp;
 }
 
+float** alloc2D_f(int height, int width) {
+	float* arr = new float[height * width];
+	float** pp = new float* [height];
+	memset(arr, 0, height * width);
+
+	for (int y = 0; y < height; y++)
+		pp[y] = &(arr[y * width]);
+
+	return pp;
+}
+
 void free2D(int **p) {
+	delete(p[0]);
+	delete(p);
+}
+
+void free2D_f(float** p) {
 	delete(p[0]);
 	delete(p);
 }

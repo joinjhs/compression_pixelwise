@@ -82,6 +82,21 @@ void txttoarray(char *image, int height, int width, int***array_2d){
 
 }
 
+void txttoarray_f(char* image, int height, int width, float*** array_2d) {
+
+	*array_2d = alloc2D_f(height, width);
+
+	std::ifstream file(image);
+
+	for (unsigned int i = 0; i < height; i++) {
+
+		for (unsigned int j = 0; j < width; j++) {
+			file >> (*array_2d)[i][j];
+		}
+	}
+
+}
+
 void arraytotxt(char* txt, int height, int width, int*** array_2d) {
 	std::ofstream file(txt);
 	for (unsigned int i = 0; i < height; i++) {

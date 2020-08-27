@@ -331,7 +331,7 @@ void decode(FILE *fp_y, FILE *fp_u, FILE *fp_v, struct stNeuralNetwork *pNN_y, s
 
 }
 
-void decode_pixel(FILE* fp_y, int** Y, int** P, int** Ctx, int height, int width) {
+void decode_pixel(FILE* fp_y, int** Y, float** P, float** Ctx, int height, int width) {
 
 
 	Arithmetic_Codec coder[1];
@@ -355,7 +355,7 @@ void decode_pixel(FILE* fp_y, int** Y, int** P, int** Ctx, int height, int width
 		for (x = 0; x < width; x++) {
 
 			int iCtx_y = calcContext(Ctx[y][x], -1);
-			int pred_y = P[y][x];
+			float pred_y = P[y][x];
 			unsigned int sym_y = decodeMag_y(iCtx_y, &coder[0], &dm[0][iCtx_y]);
 			int X_y = unmap_symbol_y(sym_y, 0, pred_y);
 			Y[y][x] = X_y;
@@ -372,8 +372,8 @@ void runDecoder_pixel(char* outfile, char* codefile, char* pred, char* context) 
 
 	FILE* fp_y;
 
-	int** C = { 0 };
-	int** P = { 0 };
+	float** C = { 0 };
+	float** P = { 0 };
 
 	if ((fp_y = fopen(codefile, "rb")) == NULL) {
 		fputs("Code file open error.\n", stderr);
@@ -394,8 +394,8 @@ void runDecoder_pixel(char* outfile, char* codefile, char* pred, char* context) 
 	}
 	clock_t end = clock();
 	//printf("reading from compressed file: %lf\n", (double)(end - start) / CLOCKS_PER_SEC);
-	txttoarray(context, height, width, &C);
-	txttoarray(pred, height, width, &P);
+	txttoarray_f(context, height, width, &C);
+	txttoarray_f(pred, height, width, &P);
 
 	start = clock();
 	int** Y;
@@ -413,8 +413,8 @@ void runDecoder_pixel(char* outfile, char* codefile, char* pred, char* context) 
 	//printf("Decoded\n");
 
 	free2D(Y);
-	free2D(C);
-	free2D(P);
+	free2D_f(C);
+	free2D_f(P);
 
 }
 

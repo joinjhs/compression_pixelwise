@@ -375,7 +375,7 @@ float encode(FILE *fp_y, FILE *fp_u, FILE *fp_v, struct stNeuralNetwork *pNN_y, 
 	return bytes;
 }
 
-float encode_pixel(FILE *fp_y, int **Y, int**P, int**Ctx, int height, int width) {
+float encode_pixel(FILE *fp_y, int **Y, float**P, float**Ctx, int height, int width) {
 
 
 	Arithmetic_Codec coder[1];
@@ -404,7 +404,7 @@ float encode_pixel(FILE *fp_y, int **Y, int**P, int**Ctx, int height, int width)
 
 			int X_y = Y[y][x];
 			int iCtx_y = calcContext(Ctx[y][x],-1);
-			int pred_y = P[y][x];
+			float pred_y = P[y][x];
 
 			ctxCnt[0][iCtx_y]++;
 
@@ -432,15 +432,15 @@ float runEncoder_pixel(char *infile, char *codefile, char *pred, char *context, 
 
 	FILE *fp_y;
 
-	int** C = { 0 };
+	float** C = { 0 };
 	int** Y = { 0 };
-	int** P = { 0 };
+	float** P = { 0 };
 	clock_t start = clock();
-	txttoarray(context, height, width, &C);
+	txttoarray_f(context, height, width, &C);
 	clock_t end = clock();
 	//printf("reading txt: %lf\n", (double)(end - start) / CLOCKS_PER_SEC);
 	txttoarray(infile, height, width, &Y);
-	txttoarray(pred, height, width, &P);
+	txttoarray_f(pred, height, width, &P);
 
 	//printf("Image : %s\n", infile);
 
@@ -457,8 +457,8 @@ float runEncoder_pixel(char *infile, char *codefile, char *pred, char *context, 
 	fclose(fp_y);
 
 	free2D(Y);
-	free2D(C);
-	free2D(P);
+	free2D_f(C);
+	free2D_f(P);
 
 
 	return float(8.0*bytes / (width*height));

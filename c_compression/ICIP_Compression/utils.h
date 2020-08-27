@@ -34,4 +34,5 @@ void matMul(WEIGHT_TYPE *A, WEIGHT_TYPE *W, WEIGHT_TYPE *B, int nA, int nB);
 void matAdd(WEIGHT_TYPE *A, WEIGHT_TYPE *B, WEIGHT_TYPE *C, int len);
 void relu(WEIGHT_TYPE *A, int len);
 void txttoarray(char* image, int width, int height, int*** array_2d);
+void txttoarray_f(char* image, int height, int width, float*** array_2d);
 void arraytotxt(char* txt, int width, int height, int*** array_2d);
