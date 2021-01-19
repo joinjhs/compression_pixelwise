@@ -6,7 +6,7 @@ def parse_training_args(parser):
     Args:
         parser: An argparse object.
     """
-    parser.add_argument('--load', type=str2bool, default='yes',
+    parser.add_argument('--load', type=str2bool, default='no',
                         help='Whether to load model or not')
 
     parser.add_argument('--gpu_num', type=int, default=0,
@@ -45,10 +45,10 @@ def parse_training_args(parser):
     parser.add_argument('--channel_epoch', type=int, default=400,
                         help='Epochs to train individual channel')
 
-    parser.add_argument('--joint_epoch', type=int, default=4000,
+    parser.add_argument('--joint_epoch', type=int, default=2000,
                         help='Epochs to train yuv channel together')                        
 
-    parser.add_argument('--batch_size', type=int, default=8,
+    parser.add_argument('--batch_size', type=int, default=4,
                         help='Size of batch (Must be divisable by 4)')
 
     parser.add_argument('--lambda_ctx', type=float, default=1,
@@ -57,8 +57,11 @@ def parse_training_args(parser):
     parser.add_argument('--save_every', type=float, default=10,
                         help='Interval of saving the model')
 
-    parser.add_argument('--print_every', type=float, default=10,
+    parser.add_argument('--print_every', type=float, default=100,
                         help='Print every')
+
+    parser.add_argument('--test_data_dir', type=str, default='div/',
+                        help='test data dir name')
 
 
 

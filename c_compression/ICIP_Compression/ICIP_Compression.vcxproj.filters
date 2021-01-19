@@ -18,6 +18,9 @@
     <ClCompile Include="arithmetic_codec.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="decode.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
     <ClCompile Include="encode.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
@@ -30,12 +33,12 @@
     <ClCompile Include="utils.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="decode.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="arithmetic_codec.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="decode.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="encode.h">
@@ -47,40 +50,5 @@
     <ClInclude Include="utils.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="decode.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="0_1.txt">
-      <Filter>리소스 파일</Filter>
-    </Text>
-    <Text Include="0_2.txt">
-      <Filter>리소스 파일</Filter>
-    </Text>
-    <Text Include="0_2_ctx.txt">
-      <Filter>리소스 파일</Filter>
-    </Text>
-    <Text Include="0_2_pred.txt">
-      <Filter>리소스 파일</Filter>
-    </Text>
-    <Text Include="0_3.txt">
-      <Filter>리소스 파일</Filter>
-    </Text>
-    <Text Include="0_3_ctx.txt">
-      <Filter>리소스 파일</Filter>
-    </Text>
-    <Text Include="0_3_pred.txt">
-      <Filter>리소스 파일</Filter>
-    </Text>
-    <Text Include="0_4.txt">
-      <Filter>리소스 파일</Filter>
-    </Text>
-    <Text Include="0_4_ctx.txt">
-      <Filter>리소스 파일</Filter>
-    </Text>
-    <Text Include="0_4_pred.txt">
-      <Filter>리소스 파일</Filter>
-    </Text>
   </ItemGroup>
 </Project>

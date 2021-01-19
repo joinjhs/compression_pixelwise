@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <string>
 #include <iostream>
+#include <fstream>
 #include <time.h>
 #include "ppm_io.h"
 #include "arithmetic_codec.h"
@@ -404,7 +405,10 @@ void runDecoder_pixel(char* outfile, char* codefile, char* pred, char* context) 
 	decode_pixel(fp_y, Y, P, C, height, width);
 	end = clock();
 	//printf("decoding time: %lf\n", (double)(end - start) / CLOCKS_PER_SEC);
-	printf("%lf ", (double)(end - start) / CLOCKS_PER_SEC);
+	//printf("%lf ", (double)(end - start) / CLOCKS_PER_SEC);
+	std::ofstream record("record.txt", std::ios::app);
+	record << (double)(end - start) / CLOCKS_PER_SEC << " ";
+	record.close();
 	fclose(fp_y);
 	start = clock();
 	arraytotxt(outfile, height, width, &Y);
@@ -415,6 +419,52 @@ void runDecoder_pixel(char* outfile, char* codefile, char* pred, char* context) 
 	free2D(Y);
 	free2D_f(C);
 	free2D_f(P);
+
+}
+
+int** runDecoder_pixel_2(char* codefile, float** P, float** C, char* outfile) {
+
+	FILE* fp_y;
+
+
+	if ((fp_y = fopen(codefile, "rb")) == NULL) {
+		fputs("Code file open error.\n", stderr);
+		exit(1);
+	}
+	clock_t start = clock();
+	Arithmetic_Codec coder[1];
+	coder[0].set_buffer(3000 * 3000);
+	coder[0].read_from_file(fp_y);
+	int width = coder[0].get_bits(16);
+	int height = coder[0].get_bits(16);
+
+	fclose(fp_y);
+
+	if ((fp_y = fopen(codefile, "rb")) == NULL) {
+		fputs("Code file open error.\n", stderr);
+		exit(1);
+	}
+	clock_t end = clock();
+
+	start = clock();
+	int** Y;
+	Y = alloc2D(height, width);
+
+	decode_pixel(fp_y, Y, P, C, height, width);
+	//arraytotxt(outfile, height, width, &Y);
+	end = clock();
+	//printf("decoding time: %lf\n", (double)(end - start) / CLOCKS_PER_SEC);
+	//printf("%lf ", (double)(end - start) / CLOCKS_PER_SEC);
+	std::ofstream record("record.txt", std::ios::app);
+	record << (double)(end - start) / CLOCKS_PER_SEC << " ";
+	record.close();
+	fclose(fp_y);
+
+	//free2D(Y);
+	//free2D_f(P);
+	//free2D_f(C);
+	
+	return Y;
 
 }
 

@@ -13,3 +13,5 @@ void runNetwork(struct stNeuralNetwork *pNN, WEIGHT_TYPE *in, float *pred, float
 float runEncoder(char *infile, char *codefile_y, char *codefile_u, char *codefile_v, char *weight_y, char *weight_u, char *weight_v);
 
 float runEncoder_pixel(char* infile, char* codefile, char* pred, char* context, int height, int width);
+
+float runEncoder_pixel_2(int** Y, char* codefile, float** P, float** C, int height, int width);

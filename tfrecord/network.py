@@ -5,6 +5,8 @@ import random
 import cv2
 import sys
 import tqdm
+import time
+import ICIP_Compression
 
 from config import parse_args
 from module import model_conv
@@ -30,7 +32,7 @@ class Network(object):
             print('\t%15s:\t%s' % (key, value))
 
 
-    def build(self):
+    def build(self, encode):
 
         # Parameters
         DATA_DIR = self.args.data_dir
@@ -60,93 +62,137 @@ class Network(object):
         self.input_crop, _, _ = read_tfrecord(DATA_DIR, tfrecord_name, num_epochs=3*CHANNEL_EPOCH+JOINT_EPOCH,
                                         batch_size=BATCH_SIZE, min_after_dequeue=10, crop_size=CROP_SIZE)
 
-        self.input = tf.placeholder(tf.uint8, (None, None, None, 3))
+        if encode:
+            self.input = tf.placeholder(tf.uint8, (None, None, None, 3))
 
-        input_yuv = self.rgb2yuv(self.input)
+            input_yuv = self.rgb2yuv(self.input)
 
-        if CHANNEL_NUM == 1:
-            input_img = tf.expand_dims(input_yuv[:,:,:,0],axis=3)
-        elif CHANNEL_NUM == 3:
-            input_img = input_yuv
+            if CHANNEL_NUM == 1:
+                input_img = tf.expand_dims(input_yuv[:,:,:,0],axis=3)
+            elif CHANNEL_NUM == 3:
+                input_img = input_yuv
+            else:
+                print("Invalid Channel Num")
+                sys.exit(1)
+
+            input_depth = tf.nn.space_to_depth(input_img, 2)
+
+            self.input_1, self.input_4, self.input_3, self.input_2 = tf.split(input_depth, 4, axis=3)
+
+            # Prediction of 2
+            pred_2, ctx_2 = model_conv(self.input_1, LAYER_NUM, HIDDEN_UNIT, 'pred_2')
+
+            error_pred_2 = abs(tf.subtract(pred_2, self.input_2))
+
+            # Prediction of 3
+            concat_1_2 = tf.concat([self.input_1, self.input_2], axis=3)
+            pred_3, ctx_3 = model_conv(concat_1_2, LAYER_NUM, HIDDEN_UNIT, 'pred_3')
+
+            error_pred_3 = abs(tf.subtract(pred_3, self.input_3))
+
+            # Prediction of 4
+            concat_1_2_3 = tf.concat([self.input_1, self.input_2, self.input_3], axis=3)
+            pred_4, ctx_4 = model_conv(concat_1_2_3, LAYER_NUM, HIDDEN_UNIT, 'pred_4')
+
+            # Prediction error
+
+            error_pred_4 = abs(tf.subtract(pred_4, self.input_4))
+
+            # Losses
+            loss_pred_2 = tf.reduce_mean(error_pred_2)
+            loss_pred_3 = tf.reduce_mean(error_pred_3)
+            loss_pred_4 = tf.reduce_mean(error_pred_4)
+
+            loss_ctx_2 = LAMBDA_CTX * tf.reduce_mean(abs(tf.subtract(ctx_2, error_pred_2)))
+            loss_ctx_3 = LAMBDA_CTX * tf.reduce_mean(abs(tf.subtract(ctx_3, error_pred_3)))
+            loss_ctx_4 = LAMBDA_CTX * tf.reduce_mean(abs(tf.subtract(ctx_4, error_pred_4)))
+
+            loss_2 = loss_pred_2 + loss_ctx_2
+            loss_3 = loss_pred_3 + loss_ctx_3
+            loss_4 = loss_pred_4 + loss_ctx_4
+
+            total_loss = loss_2 + loss_3 + loss_4
+
+            # Optimizer
+            all_vars = tf.trainable_variables()
+            vars_2 = [var for var in all_vars if 'pred_2' in var.name]
+            vars_3 = [var for var in all_vars if 'pred_3' in var.name]
+            vars_4 = [var for var in all_vars if 'pred_4' in var.name]
+
+            self.optimizer_2 = tf.train.AdamOptimizer(LR).minimize(loss_2, var_list=vars_2)
+            self.optimizer_3 = tf.train.AdamOptimizer(LR).minimize(loss_3, var_list=vars_3)
+            self.optimizer_4 = tf.train.AdamOptimizer(LR).minimize(loss_4, var_list=vars_4)
+            self.optimizer_all = tf.train.AdamOptimizer(LR).minimize(total_loss, var_list=all_vars)
+
+            # Variables
+            self.loss_2 = loss_2
+            self.loss_3 = loss_3
+            self.loss_4 = loss_4
+            self.loss_all = loss_4 + loss_2 + loss_3
+
+            self.loss_pred_2 = loss_pred_2
+            self.loss_pred_3 = loss_pred_3
+            self.loss_pred_4 = loss_pred_4
+            self.loss_pred_all = loss_pred_2 + loss_pred_3 + loss_pred_4
+
+            self.loss_ctx_2 = loss_ctx_2
+            self.loss_ctx_3 = loss_ctx_3
+            self.loss_ctx_4 = loss_ctx_4
+            self.loss_ctx_all = loss_ctx_2 + loss_ctx_3 + loss_ctx_4
+
+            self.pred_2 = pred_2
+            self.pred_3 = pred_3
+            self.pred_4 = pred_4
+
+            self.ctx_2 = ctx_3
+            self.ctx_3 = ctx_3
+            self.ctx_4 = ctx_4
+
         else:
-            print("Invalid Channel Num")
-            sys.exit(1)
+            '''
+            self.input = tf.placeholder(tf.uint8, (None, None, None, 3))
+            input_img = tf.expand_dims(self.rgb2yuv(self.input)[:,:,:,0],axis=3)
+            self.input_1, _, _, _ = tf.split(tf.nn.space_to_depth(input_img, 2), 4, axis=3)
+            '''
+            self.input_1 = tf.placeholder(tf.uint8, (None, None, None, CHANNEL_NUM))
+            self.input_1 = tf.to_float(self.input_1)
 
-        input_depth = tf.nn.space_to_depth(input_img, 2)
+            # Prediction of 2
+            pred_2, ctx_2 = model_conv(self.input_1, LAYER_NUM, HIDDEN_UNIT, 'pred_2')
 
-        input_1, input_4, input_3, input_2 = tf.split(input_depth, 4, axis=3)
+            self.pred_2 = pred_2
+            self.ctx_2 = ctx_2
 
-        # Prediction of 2
-        pred_2, ctx_2 = model_conv(input_1, LAYER_NUM, HIDDEN_UNIT, 'pred_2')
+            self.input_2 = tf.placeholder(tf.uint8, (None, None, None, CHANNEL_NUM))
+            self.input_2 = tf.to_float(self.input_2)
 
-        # Prediction of 3
-        concat_1_2 = tf.concat([input_1, input_2], axis=3)
-        pred_3, ctx_3 = model_conv(concat_1_2, LAYER_NUM, HIDDEN_UNIT, 'pred_3')
+            # Prediction of 3
+            concat_1_2 = tf.concat([self.input_1, self.input_2], axis=3)
+            pred_3, ctx_3 = model_conv(concat_1_2, LAYER_NUM, HIDDEN_UNIT, 'pred_3')
 
-        # Prediction of 4
-        concat_1_2_3 = tf.concat([input_1, input_2, input_3], axis=3)
-        pred_4, ctx_4 = model_conv(concat_1_2_3, LAYER_NUM, HIDDEN_UNIT, 'pred_4')
+            self.pred_3 = pred_3
+            self.ctx_3 = ctx_3
 
-        # Prediction error
-        error_pred_2 = abs(tf.subtract(pred_2, input_2))
-        error_pred_3 = abs(tf.subtract(pred_3, input_3))
-        error_pred_4 = abs(tf.subtract(pred_4, input_4))
 
-        # Losses
-        loss_pred_2 = tf.reduce_mean(error_pred_2)
-        loss_pred_3 = tf.reduce_mean(error_pred_3)
-        loss_pred_4 = tf.reduce_mean(error_pred_4)
+            self.input_3 = tf.placeholder(tf.uint8, (None, None, None, CHANNEL_NUM))
+            self.input_3 = tf.to_float(self.input_3)
 
-        loss_ctx_2 = LAMBDA_CTX * tf.reduce_mean(abs(tf.subtract(ctx_2, error_pred_2)))
-        loss_ctx_3 = LAMBDA_CTX * tf.reduce_mean(abs(tf.subtract(ctx_3, error_pred_3)))
-        loss_ctx_4 = LAMBDA_CTX * tf.reduce_mean(abs(tf.subtract(ctx_4, error_pred_4)))
+            # Prediction of 4
+            concat_1_2_3 = tf.concat([self.input_1, self.input_2, self.input_3], axis=3)
+            pred_4, ctx_4 = model_conv(concat_1_2_3, LAYER_NUM, HIDDEN_UNIT, 'pred_4')
 
-        loss_2 = loss_pred_2 + loss_ctx_2
-        loss_3 = loss_pred_3 + loss_ctx_3
-        loss_4 = loss_pred_4 + loss_ctx_4
+            self.pred_4 = pred_4
+            self.ctx_4 = ctx_4
 
-        total_loss = loss_2 + loss_3 + loss_4
 
-        # Optimizer
-        all_vars = tf.trainable_variables()
-        vars_2 = [var for var in all_vars if 'pred_2' in var.name]
-        vars_3 = [var for var in all_vars if 'pred_3' in var.name]
-        vars_4 = [var for var in all_vars if 'pred_4' in var.name]
 
-        self.optimizer_2 = tf.train.AdamOptimizer(LR).minimize(loss_2, var_list=vars_2)
-        self.optimizer_3 = tf.train.AdamOptimizer(LR).minimize(loss_3, var_list=vars_3)
-        self.optimizer_4 = tf.train.AdamOptimizer(LR).minimize(loss_4, var_list=vars_4)
-        self.optimizer_all = tf.train.AdamOptimizer(LR).minimize(total_loss, var_list=all_vars)
-
-        # Variables
-        self.loss_2 = loss_2
-        self.loss_3 = loss_3
-        self.loss_4 = loss_4
-        self.loss_all = loss_4 + loss_2 + loss_3
-
-        self.loss_pred_2 = loss_pred_2
-        self.loss_pred_3 = loss_pred_3
-        self.loss_pred_4 = loss_pred_4
-        self.loss_pred_all = loss_pred_2 + loss_pred_3 + loss_pred_4
-
-        self.loss_ctx_2 = loss_ctx_2
-        self.loss_ctx_3 = loss_ctx_3
-        self.loss_ctx_4 = loss_ctx_4
-        self.loss_ctx_all = loss_ctx_2 + loss_ctx_3 + loss_ctx_4
-
-        self.pred_2 = pred_2
-        self.pred_3 = pred_3
-        self.pred_4 = pred_4
-
-        self.ctx_2 = ctx_3
-        self.ctx_3 = ctx_3
-        self.ctx_4 = ctx_4
 
         # Original images
-        self.input_1 = input_1
+        '''self.input_1 = input_1
         self.input_2 = input_2
         self.input_3 = input_3
-        self.input_4 = input_4
+        self.input_4 = input_4'''
+
 
     def rgb2yuv(self, input_rgb):
 
@@ -207,7 +253,7 @@ class Network(object):
             loss_pred_epoch_2 = loss_pred_epoch_3 = loss_pred_epoch_4 = 0
             loss_ctx_epoch_2 = loss_ctx_epoch_3 = loss_ctx_epoch_4 = 0
 
-            while True:
+            for a in range(JOINT_EPOCH+3*CHANNEL_EPOCH):
                 sess.run(increase)
 
                 if epoch < CHANNEL_EPOCH :
@@ -285,7 +331,9 @@ class Network(object):
         config.gpu_options.allow_growth = True
 
         # Read dataset
-        test_data = read_dir(DATA_DIR + 'div/')
+        test_data = read_dir(DATA_DIR + self.args.test_data_dir)
+
+        start = time.time()
 
         with tf.Session(config=config) as sess:
             sess.run(tf.global_variables_initializer())
@@ -310,8 +358,10 @@ class Network(object):
             loss_ctx_epoch_2 = loss_ctx_epoch_3 = loss_ctx_epoch_4 = 0
 
             img_idx = 0
+            elapsed = 0
 
             for test_name in tqdm.tqdm(test_data):
+                starttime = time.time()
                 
                 test_sample = cv2.cvtColor(cv2.imread(test_name),cv2.COLOR_BGR2RGB)
 
@@ -321,9 +371,13 @@ class Network(object):
                     self.input : test_sample
                 }
 
+                t_1 = time.time()
+
                 i1, i2, i3, i4, p2, p3, p4, c2, c3, c4 = sess.run(
                     [self.input_1, self.input_2, self.input_3, self.input_4, self.pred_2, self.pred_3, self.pred_4,
                      self.ctx_2, self.ctx_3, self.ctx_4], feed_dict=feed_dict_test)
+
+                t_2 = time.time()
 
                 loss_p_2, loss_p_3, loss_p_4, loss_c_2, loss_c_3, loss_c_4 = sess.run(
                     [self.loss_pred_2, self.loss_pred_3, self.loss_pred_4, self.loss_ctx_2, self.loss_ctx_3,
@@ -344,26 +398,47 @@ class Network(object):
                 ctx_3.append(c3)
                 ctx_4.append(c4)
                 '''
+
+
                 save_image_data(img_idx, 1, i1)
+
                 save_image_data(img_idx, 2, i2)
                 save_image_data(img_idx, 3, i3)
                 save_image_data(img_idx, 4, i4)
+                '''
                 save_pred_data(img_idx, 2, p2)
                 save_pred_data(img_idx, 3, p3)
                 save_pred_data(img_idx, 4, p4)
                 save_ctx_data(img_idx, 2, c2)
                 save_ctx_data(img_idx, 3, c3)
                 save_ctx_data(img_idx, 4, c4)
+                '''
+                t_0 = time.time()
+                ICIP_Compression.runencoder(i1.shape[1], i1.shape[2], img_idx, 2, i2[0, :, :, 0].astype(int), p2[0, :, :, 0], c2[0, :, :, 0], "data/compressed.bin")
+                print("encoded 2")
+                encode_2 = time.time()-t_0
+                ICIP_Compression.runencoder(i1.shape[1], i1.shape[2], img_idx, 3, i3[0, :, :, 0].astype(int), p3[0, :, :, 0], c3[0, :, :, 0],
+                                            "data/compressed.bin")
+                print("encoded 3")
+                encode_3 = time.time() - t_0 - encode_2
+                ICIP_Compression.runencoder(i1.shape[1], i1.shape[2], img_idx, 4, i4[0, :, :, 0].astype(int), p4[0, :, :, 0], c4[0, :, :, 0],
+                                            "data/compressed.bin")
+                print("encoded 4")
+                encode_4 = time.time() - t_0 - encode_3
+                endtime = time.time()
+                elapsed += endtime - starttime
+
+                print("total: {}s\n 2: {}s\n 3: {}s\n 4: {}s\n network: {}\n".format(elapsed,encode_2,encode_3,encode_4,t_2-t_1))
 
                 size = np.zeros(2)
                 size[0]=i1.shape[1]
                 size[1]=i1.shape[2]
-                np.savetxt('../c_compression/ICIP_Compression/data/' + str(img_idx) + '_size.txt', size, fmt='%d')
+                np.savetxt('data/' + str(img_idx) + '_size.txt', size, fmt='%d')
                 
                 print('num {}'.format(img_idx))
                 img_idx += 1
 
-
+            elapsed /=img_idx
             loss_pred_epoch_2 /= len(test_data)
             loss_pred_epoch_3 /= len(test_data)
             loss_pred_epoch_4 /= len(test_data)
@@ -385,14 +460,171 @@ class Network(object):
                   'lossContext=',
                   '{:9.4f}'.format(loss_ctx_epoch_2 + loss_ctx_epoch_3 + loss_ctx_epoch_4), 'Loss=',
                   '{:9.4f}'.format(loss_epoch_2 + loss_epoch_3 + loss_epoch_4))
+            print("elapsed time: {}s for {} images, {}s per image.".format(time.time()-start, img_idx, (time.time()-start)/(img_idx)))
+            print("purely elapsed time: {}s per image.".format(elapsed))
+
+    def decode(self):
+        GPU_NUM = self.args.gpu_num
+        DATA_DIR = self.args.data_dir
+        CKPT_DIR = self.args.ckpt_dir
+        CHANNEL_NUM = self.args.channel_num
+
+        # Assign GPU
+        os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
+        os.environ['CUDA_VISIBLE_DEVICES'] = str(GPU_NUM)
+
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+
+        # Read dataset
+        #img_data = read_dir('data/img/')
+
+        start = time.time()
+
+        with tf.Session(config=config) as sess:
+            sess.run(tf.global_variables_initializer())
+            saver = tf.train.Saver(max_to_keep=1)
+            ckpt = tf.train.get_checkpoint_state(CKPT_DIR)
+
+            # Load model
+            if ckpt:
+                saver.restore(sess, ckpt.model_checkpoint_path)
+                print("Model Loaded")
+            else:
+                print("No model to load")
+                sys.exit(1)
 
 
+            img_idx = 0
+            elapsed = 0
 
+            for img_num in range(18):
+                filename = "data/img/" + str(img_num) + "_1.png"
+                starttime = time.time()
+
+                test_sample = cv2.imread(filename, cv2.IMREAD_GRAYSCALE)
+
+                test_sample = np.expand_dims(test_sample, axis=0)
+                test_sample = np.expand_dims(test_sample, axis=3)
+
+                width = test_sample.shape[1]
+                height = test_sample.shape[2]
+
+                dummy = np.zeros((1, width, height, 1))
+
+                feed_dict_test = {
+                    self.input_1: test_sample,
+                    self.input_2: dummy,
+                    self.input_3: dummy
+                }
+                start2 = time.time()
+
+                p2, c2 = sess.run(
+                    [self.pred_2, self.ctx_2], feed_dict=feed_dict_test)
+
+                net2 = time.time()-start2
+
+                result_2 = ICIP_Compression.rundecoder(width, height, img_idx, 2,
+                                            p2[0, :, :, 0], c2[0, :, :, 0],
+                                            "data/compressed.bin")
+
+                result_2 = np.expand_dims(result_2, axis=0)
+                result_2 = np.expand_dims(result_2, axis=3)
+
+                time2 = time.time()-net2 -start2
+
+                feed_dict_test = {
+                    self.input_1: test_sample,
+                    self.input_2: result_2,
+                    self.input_3: dummy
+                    #TODO: 이전에 나왔던 결과 이미지 input으로, test sample은 if문 시작하기 전에 잘라서 넣기
+
+                }
+
+                start3 = time.time()
+
+                p3, c3 = sess.run(
+                    [self.pred_3, self.ctx_3], feed_dict=feed_dict_test)
+
+                net3 = time.time() - start3
+
+                result_3 = ICIP_Compression.rundecoder(width, height, img_idx, 3,
+                                            p3[0, :, :, 0], c3[0, :, :, 0],
+                                            "data/compressed.bin")
+
+                result_3 = np.expand_dims(result_3, axis=0)
+                result_3 = np.expand_dims(result_3, axis=3)
+
+                time3 = time.time() - net3 - start3
+
+                feed_dict_test = {
+                    self.input_1: test_sample,
+                    self.input_2: result_2,
+                    self.input_3: result_3
+                }
+                start4 = time.time()
+
+                p4, c4 = sess.run(
+                    [self.pred_4, self.ctx_4], feed_dict=feed_dict_test)
+
+                net4 = time.time() - start4
+
+                result_4 = ICIP_Compression.rundecoder(width, height, img_idx, 4,
+                                            p4[0, :, :, 0], c4[0, :, :, 0],
+                                            "data/compressed.bin")
+
+                result_4 = np.expand_dims(result_4, axis=0)
+                result_4 = np.expand_dims(result_4, axis=3)
+
+                time4 = time.time() - net4 - start4
+
+                img_idx += 1
+
+                startm = time.time()
+
+                merged = tf.concat([self.input_1, result_4, result_2, result_3], axis=3)
+
+                whole_img = tf.nn.depth_to_space(merged, 2)
+                whole_img_np = sess.run(whole_img, feed_dict=feed_dict_test)
+
+                timem = time.time() - startm
+
+                endtime = time.time()
+                elapsed += endtime - starttime
+
+                print("total: {}s\n time_2: (network){}s (decoder){}s\n time_3: (network){}s (decoder){}s\n time_4: (network){}s (decoder){}s\n merge: {}s".format(elapsed, net2, time2, net3, time3, net4, time4, timem))
+
+                np.savetxt('data/result/txt/' + str(img_idx) + '.txt',
+                           whole_img_np[0, :, :, 0],
+                           fmt='%d')
+                cv2.imwrite(
+                    'data/result/img/' + str(img_idx) + '.png',
+                    np.squeeze(whole_img_np[0, :, :, 0]))
+
+                print('num {}'.format(img_idx))
+                img_idx += 1
+
+            elapsed /= img_idx
+
+
+            print("elapsed time: {}s for {} images, {}s per image.".format(time.time() - start, img_idx,
+                                                                           (time.time() - start) / (img_idx)))
+            print("purely elapsed time: {}s per image.".format(elapsed))
+
+
+mode = "encode"
 
 if __name__ == "__main__":
 
-    args = parse_args()
-    my_net = Network(args)
-    my_net.build()
-    #my_net.train()
-    my_net.test()
+    if mode == "encode":
+        args = parse_args()
+        my_net = Network(args)
+        my_net.build(encode=True)
+        #my_net.train()
+        my_net.test()
+
+    else :
+        args = parse_args()
+        my_net = Network(args)
+        my_net.build(encode=False)
+        my_net.decode()

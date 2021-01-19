@@ -5,6 +5,7 @@
 #include <string>
 #include <time.h>
 #include "ppm_io.h"
+#include <fstream>
 
 #pragma warning(disable: 4996)
 
@@ -422,7 +423,11 @@ float encode_pixel(FILE *fp_y, int **Y, float**P, float**Ctx, int height, int wi
 	int bytes = bytes_y;
 
 	//printf("%7.4f bpp (%d bytes)\n", 8.0*bytes / numPix, bytes);
-	printf("%7.4f ", 8.0*bytes / numPix);
+	//printf("%7.4f ", 8.0*bytes / numPix);
+
+	std::ofstream record("record.txt", std::ios::app);
+	record << 8.0 * bytes / numPix << " ";
+	record.close();
 
 	return bytes;
 }
@@ -453,7 +458,10 @@ float runEncoder_pixel(char *infile, char *codefile, char *pred, char *context, 
 	int bytes = encode_pixel(fp_y, Y, P, C, height, width);
 	end = clock();
 	//printf("Encoding time: %lf\n", (double)(end - start) / CLOCKS_PER_SEC);
-	printf("%lf ", (double)(end - start) / CLOCKS_PER_SEC);
+	//printf("%lf ", (double)(end - start) / CLOCKS_PER_SEC);
+	std::ofstream record("record.txt", std::ios::app);
+	record << (double)(end - start) / CLOCKS_PER_SEC << " ";
+	record.close();
 	fclose(fp_y);
 
 	free2D(Y);
@@ -464,6 +472,33 @@ float runEncoder_pixel(char *infile, char *codefile, char *pred, char *context, 
 	return float(8.0*bytes / (width*height));
 }
 
+float runEncoder_pixel_2(int** Y, char* codefile, float** P, float** C, int height, int width) {
+
+	FILE* fp_y;
+
+
+	if (!(fp_y = fopen(codefile, "wb"))) {
+		fprintf(stderr, "Code file open error(encoding).\n");
+		exit(-1);
+	}
+
+	clock_t start = clock();
+	int bytes = encode_pixel(fp_y, Y, P, C, height, width);
+	clock_t end = clock();
+	//printf("Encoding time: %lf\n", (double)(end - start) / CLOCKS_PER_SEC);
+	//printf("%lf ", (double)(end - start) / CLOCKS_PER_SEC);
+	std::ofstream record("record.txt", std::ios::app);
+	record << (double)(end - start) / CLOCKS_PER_SEC << " ";
+	record.close();
+	fclose(fp_y);
+	/*
+	free2D(Y);
+	free2D_f(C);
+	free2D_f(P);
+	*/
+
+	return float(8.0 * bytes / (width * height));
+}
 
 float runEncoder(char *infile, char *codefile_y, char *codefile_u, char *codefile_v, char *weight_y, char *weight_u, char *weight_v) {
 
